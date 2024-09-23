@@ -1,7 +1,7 @@
 import { EventEmitter } from "@/utils/eventEmitter";
 import CvsImg, { CvsImgOptions } from "./CvsImg";
 import spinImg from "@/assets/spin.png";
-import { calculateRotation, logCtxTransform } from "@/utils";
+import { calculateRotation, getCtxTransform } from "@/utils";
 
 export enum StatusEnum {
     DRAGGING = "dragging",
@@ -57,8 +57,8 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
         rotationButtonMargin: 40,
     };
 
-    startX: number = 0;
-    startY: number = 0;
+    startXOnCanvas: number = 0;
+    startYOnCanvas: number = 0;
     startOptions: CvsImgOptions | null = null;
 
     constructor(options: CvsImgToolOptions) {
@@ -84,49 +84,51 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
             showRotationButton?: boolean;
             showCorners?: boolean;
             showClipButton?: boolean;
-        } = {}
+        } = {},
+        position: { dx?: number; dy?: number } = {}
     ): void {
         if (!this.currentImg) return;
 
         const { showEdges = true, showRotationButton = true, showCorners = true, showClipButton = true } = showConfig;
 
-        const { dWidth, dHeight } = this.currentImg.options;
+        const targetPostion = Object.assign({}, this.currentImg.options, position);
+        const { dx, dy, dWidth, dHeight } = targetPostion;
 
         // 保存当前状态
         this.ctx.save();
 
         // 绘制边框
         if (showEdges) {
-            this.drawEdges(-dWidth / 2, -dHeight / 2, dWidth, dHeight);
+            this.drawEdges(dx, dy, dWidth, dHeight);
         }
 
         // 绘制裁剪框，分别在边框的上下左右绘制一个矩形
         if (showClipButton) {
-            this.drawClipButton(-dWidth / 2, -dHeight / 2, dWidth, dHeight);
+            this.drawClipButton(dx, dy, dWidth, dHeight);
         }
 
         // 绘制四角圆圈（用于缩放）
         if (showCorners) {
-            this.drawCornerCircles(-dWidth / 2, -dHeight / 2, dWidth, dHeight);
+            this.drawCornerCircles(dx, dy, dWidth, dHeight);
         }
 
         // 绘制旋转按钮
         if (showRotationButton) {
-            this.drawRotationButton(-dWidth / 2, -dHeight / 2, dWidth, dHeight);
+            this.drawRotationButton(dx, dy, dWidth, dHeight);
         }
 
         this.ctx.restore();
         this.isShow = true;
     }
 
-    // 隐藏编辑框
+    /** 隐藏编辑框 */
     hide(): void {
-        this.ctx.reset();
+        this.ctx.clearRect(-this.canvas.width / 2, -this.canvas.height / 2, this.canvas.width, this.canvas.height);
         this.currentImg?.draw();
         this.isShow = false;
     }
 
-    // 绘制边框
+    /** 绘制边框 */
     drawEdges(x: number, y: number, width: number, height: number): void {
         // 设置阴影样式
         this.ctx.shadowColor = "rgba(0, 0, 0, 0.4)"; // 灰色阴影
@@ -139,7 +141,7 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
         this.ctx.strokeRect(x, y, width, height);
     }
 
-    // 绘制四个角的圆圈
+    /** 绘制四个角的圆圈 */
     drawCornerCircles(x: number, y: number, width: number, height: number): void {
         const corners = [
             { cx: x, cy: y }, // top-left
@@ -259,7 +261,7 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
     /** 处理鼠标按下事件 */
     onMouseDown(e: MouseEvent): void {
         if (!this.canvas || !this.currentImg) return;
-        logCtxTransform(this.ctx);
+        getCtxTransform(this.ctx);
         const rect = this.canvas!.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
@@ -268,15 +270,15 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
 
         if (!this.isShow && isInsideImage) {
             this.canvas.style.cursor = "grab";
-            this.ctx.reset();
             this.currentImg!.draw();
             this.show();
             return;
         }
         if (this.isShow) {
             // 记录鼠标按下时的初始位置
-            this.startX = e.offsetX;
-            this.startY = e.offsetY;
+            const canvasPoint = this.convertPoint2Convas([e.offsetX, e.offsetY]);
+            this.startXOnCanvas = canvasPoint[0];
+            this.startYOnCanvas = canvasPoint[1];
             // 记录鼠标按下时的图片位置
             this.startOptions = JSON.parse(JSON.stringify(this.currentImg!.options));
 
@@ -352,11 +354,16 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
     handleMouseMoveWhenDragging(e: MouseEvent): void {
         if (!this.currentImg || !this.startOptions) return;
 
-        this.ctx.reset();
+        this.ctx.clearRect(-this.canvas.width / 2, -this.canvas.height / 2, this.canvas.width, this.canvas.height);
 
-        this.canvas.style.cursor = "grabbing";
-        this.currentImg.options.dx = this.startOptions.dx + e.offsetX - this.startX;
-        this.currentImg.options.dy = this.startOptions.dy + e.offsetY - this.startY;
+        // 计算鼠标移动的距离
+        const [offsetX, offsetY] = this.convertPoint2Convas([e.offsetX, e.offsetY]);
+        const diffX = offsetX - this.startXOnCanvas;
+        const diffY = offsetY - this.startYOnCanvas;
+
+        // translate是对当前的偏移量进行修改，而不是直接设置，因此只需要设置偏移量差即可
+        this.ctx.translate(diffX, diffY);
+
         this.currentImg.draw();
         this.show({
             showEdges: true,
@@ -364,19 +371,22 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
             showClipButton: false,
             showCorners: false,
         });
+
+        // this.startXOnCanvas = offsetX;
+        // this.startYOnCanvas = offsetY;
     }
 
     /** 处理裁剪 */
     handleMouseMoveWhenCliping(e: MouseEvent) {
         if (!this.currentImg || !this.startOptions) return;
 
-        logCtxTransform(this.ctx);
-        this.ctx.reset();
-        // this.ctx.translate(0, 0);
+        getCtxTransform(this.ctx);
+
+        this.ctx.clearRect(-this.canvas.width / 2, -this.canvas.height / 2, this.canvas.width, this.canvas.height);
 
         // 鼠标位置差
-        const diffOffsetX = (e.offsetX - this.startX) * Math.cos(this.startOptions.radian);
-        const diffOffsetY = (e.offsetY - this.startY) * Math.cos(this.startOptions.radian);
+        const diffOffsetX = (e.offsetX - this.startXOnCanvas) * Math.cos(this.startOptions.radian);
+        const diffOffsetY = (e.offsetY - this.startYOnCanvas) * Math.cos(this.startOptions.radian);
 
         const sDiffOffsetX = (this.startOptions.sWidth / this.startOptions.dWidth) * diffOffsetX;
         const sDiffOffsetY = (this.startOptions.sHeight / this.startOptions.dHeight) * diffOffsetY;
@@ -442,23 +452,40 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
 
     /** 处理旋转 */
     handleMouseMoveWhenRotate(e: MouseEvent) {
+        console.log("rotate");
         if (!this.currentImg || !this.startOptions) return;
 
-        this.ctx.reset();
+        // 开始时画布原点是左上角
+        this.ctx.clearRect(-this.canvas.width / 2, -this.canvas.height / 2, this.canvas.width, this.canvas.height);
 
-        const { dx, dy, dWidth, dHeight } = this.currentImg.options;
-        const centerPoint: [number, number] = [dx + dWidth / 2, dy + dHeight / 2];
-        // 获取当前canvas的
-        console.log([this.startX, this.startY], centerPoint, [e.offsetX, e.offsetY]);
-        const radian = calculateRotation([this.startX, this.startY], centerPoint, [e.offsetX, e.offsetY]);
+        const { dWidth, dHeight } = this.currentImg.options;
+
+        // 获取先后两点在canvas中的位置
+        const startPoint: [number, number] = [this.startXOnCanvas, this.startYOnCanvas];
+        const endPoing = this.convertPoint2Convas([e.offsetX, e.offsetY]);
+
+        const centerPoint: [number, number] = [0, 0];
+        const radian = calculateRotation(startPoint, centerPoint, endPoing);
         this.currentImg.options.radian = this.startOptions!.radian + radian;
-        this.currentImg.draw();
-        this.show({
-            showEdges: true,
-            showRotationButton: false,
-            showClipButton: false,
-            showCorners: false,
-        });
+        
+        // 设置dx，dy为负的宽高的一半
+        const position = { dx: -dWidth / 2, dy: -dHeight / 2 };
+
+        // 旋转和平移一样是叠加的，所以只能在这里执行
+        this.ctx.rotate(radian);
+
+        this.currentImg.draw(position);
+        this.show(
+            {
+                showEdges: true,
+                showRotationButton: false,
+                showClipButton: false,
+                showCorners: false,
+            },
+            position
+        );
+        this.startXOnCanvas = startPoint[0];
+        this.startYOnCanvas = startPoint[1];
     }
 
     /** 鼠标移动时对鼠标位置判断，改变对应状态 */
@@ -512,6 +539,27 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
         // 更新图片大小
         // this.options.width = newWidth;
         // this.options.height = newHeight;
+    }
+
+    /**
+     * dom坐标转换成canvas坐标
+     * 参考 https://juejin.cn/post/7047787541784690725?searchId=20240923204822157D27B2CF9E4C170167
+     */
+    convertPoint2Convas([x, y]: [number, number]): [number, number] {
+        const { radian, origin } = getCtxTransform(this.ctx);
+        x = x - origin.x;
+        y = y - origin.y;
+
+        if (radian) {
+            var len = Math.sqrt(x * x + y * y);
+            // 屏幕坐标系中，原点、按下点连线与屏幕坐标系X轴的夹角弧度
+            var oldR = Math.atan2(y, x);
+            // canvas坐标系中，原点、按下点连线与canvas坐标系x轴的夹角弧度
+            var newR = oldR - radian;
+            x = len * Math.cos(newR);
+            y = len * Math.sin(newR);
+        }
+        return [x, y];
     }
 }
 

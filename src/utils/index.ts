@@ -21,10 +21,12 @@ export function calculateRotation(startPoint: [number, number], midPoint: [numbe
 }
 
 // 打印ctx的旋转角度
-export function logCtxTransform(ctx: CanvasRenderingContext2D) {
+export function getCtxTransform(ctx: CanvasRenderingContext2D) {
     // 获取当前变换矩阵
     const transform = ctx.getTransform();
     // 计算旋转角度
-    const angle = Math.atan2(transform.b, transform.a); // 使用矩阵的元素计算角度
-    console.log("当前旋转角度（度）:", angle * (180 / Math.PI), "当前坐标原点:", { x: transform.e, y: transform.f });
+    const radian = Math.atan2(transform.b, transform.a); // 使用矩阵的元素计算角度
+    const origin = { x: transform.e, y: transform.f };
+    console.log("当前旋转角度（度）:", radian * (180 / Math.PI), "当前坐标原点:", origin);
+    return { radian, origin };
 }

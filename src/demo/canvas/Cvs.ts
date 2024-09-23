@@ -55,10 +55,7 @@ class Cvs {
         img.src = imgSrc;
         img.onload = () => {
             // 调整图片大小以适应最大宽高
-            const { width, height } = this.calculateImageSize(
-                img.width,
-                img.height
-            );
+            const { width, height } = this.calculateImageSize(img.width, img.height);
 
             // 创建CvsImg实例
             const newCvsImg = new CvsImg(img, {
@@ -71,29 +68,24 @@ class Cvs {
                 sy: 0,
                 sWidth: img.width,
                 sHeight: img.height,
-                dx: (this.options.width - width) / 2,
-                dy: (this.options.height - height) / 2,
+                dx: -width / 2,
+                dy: -height / 2,
                 dWidth: width,
                 dHeight: height,
             });
-
+            
+            // 设置中心点为图片中心
+            this.ctx?.translate(this.canvas.width / 2, this.canvas.height / 2);
+            // 绘制图片
+            newCvsImg.draw()
+            
+            this.cvsImgTool.setCurrentImg(newCvsImg);
             this.cvsImg = newCvsImg;
-
-            // 清除画布
-            this.clearCanvas();
-
-            // 重新绘制所有图片
-            this.drawImage();
-
-            this.cvsImgTool.setCurrentImg(this.cvsImg);
         };
     }
 
     /** 计算合适的图片宽高 */
-    calculateImageSize(
-        width: number,
-        height: number
-    ): { width: number; height: number } {
+    calculateImageSize(width: number, height: number): { width: number; height: number } {
         const { maxImgWidth, maxImgHeight } = this.options;
 
         let newWidth = width;
@@ -113,13 +105,6 @@ class Cvs {
     /** 清空画布 */
     clearCanvas(): void {
         this.ctx?.reset();
-    }
-
-    /** 绘制图片 */
-    drawImage(): void {
-        if (!this.ctx || !this.cvsImg) return;
-
-        this.cvsImg.draw();
     }
 }
 

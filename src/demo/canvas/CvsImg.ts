@@ -33,30 +33,24 @@ class CvsImg {
         this.options = options;
     }
 
-    draw() {
-        const { radian, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight } =
-            this.options;
-        this.ctx.translate(dx + dWidth / 2, dy + dHeight / 2);
-        console.log("设置坐标原点", dx + dWidth / 2, dy + dHeight / 2);
-        this.ctx.rotate(radian);
-        this.ctx.drawImage(
-            this.image,
-            sx,
-            sy,
-            sWidth,
-            sHeight,
-            -dWidth / 2,
-            -dHeight / 2,
-            dWidth,
-            dHeight
-        );
+    draw(position: { dx?: number; dy?: number } = {}) {
+        const targetPostion = Object.assign({}, this.options, position);
+        const { sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight } = targetPostion;
+
+        this.ctx.drawImage(this.image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
         // 绘制用于点击识别的区域
         this.path2D = new Path2D();
-        this.path2D.rect(-dWidth / 2, -dHeight / 2, dWidth, dHeight);
+        this.path2D.rect(dx, dy, dWidth, dHeight);
 
         this.ctx.fillStyle = "transparent";
         this.ctx.fill(this.path2D);
-        // this.ctx.resetTransform(); // 这里不能恢复，否则点击区域会错误
+
+        // 判断是否是开发环境
+        if (process.env.NODE_ENV === "development") {
+            // 画整个画布的区域（用于调试）
+            this.ctx.strokeStyle = "red";
+            this.ctx.strokeRect(0, 0, this.canvas.width, this.canvas.height);
+        }
     }
 }
 

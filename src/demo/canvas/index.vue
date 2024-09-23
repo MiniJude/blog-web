@@ -1,7 +1,7 @@
 <template>
   <div>
     <canvas ref="canvasRef"></canvas>
-    <button @click="addImage">添加图片</button>
+    <!-- <button @click="addImage">添加图片</button> -->
   </div>
 </template>
 
@@ -15,6 +15,7 @@ let cvs: Cvs | null = null;
 onMounted(() => {
   if (canvasRef.value) {
     cvs = new Cvs(canvasRef.value);
+    addImage()
   }
 });
 

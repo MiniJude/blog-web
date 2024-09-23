@@ -1,0 +1,1 @@
+{"root":["./src/main.ts","./src/vite-env.d.ts","./src/demo/canvas/cvs.ts","./src/demo/canvas/cvsimg.ts","./src/demo/canvas/cvsimgtool.ts","./src/router/index.ts","./src/utils/eventemitter.ts","./src/utils/index.ts","./src/app.vue","./src/components/helloworld.vue","./src/demo/index.vue","./src/demo/canvas/index.vue"],"errors":true,"version":"5.6.2"}
