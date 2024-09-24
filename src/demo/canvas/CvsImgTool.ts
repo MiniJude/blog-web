@@ -251,7 +251,7 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
         return "";
     }
 
-    // 添加事件监听
+    /** 添加事件监听 */
     addEventListeners(): void {
         this.canvas.addEventListener("mousedown", (e: MouseEvent) => this.onMouseDown(e));
         window.addEventListener("mousemove", (e: MouseEvent) => this.onMouseMove(e));
@@ -344,6 +344,43 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
     /** 处理鼠标松开事件 */
     onMouseUp(): void {
         if (this.status !== StatusEnum.NONE) {
+            const { dx, dy, dWidth, dHeight } = this.currentImg!.options;
+            if (this.status === StatusEnum.CLIPING) {
+                // 当前图片中心点坐标
+                const center = {
+                    x: dx + dWidth! / 2,
+                    y: dy + dHeight / 2,
+                };
+                const diffX = -center.x;
+                const diffY = -center.y;
+
+                switch (this.selectedClipBtnName) {
+                    case ClipBtnName.RIGHT: {
+                        this.ctx.translate(-diffX, 0);
+                        this.currentImg!.options.dx += diffX;
+                        break;
+                    }
+                    case ClipBtnName.BOTTOM: {
+                        this.ctx.translate(0, -diffY);
+                        this.currentImg!.options.dy += diffY;
+                        break;
+                    }
+                    case ClipBtnName.TOP: {
+                        this.ctx.translate(0, -diffY);
+                        this.currentImg!.options.dy += diffY;
+                        break;
+                    }
+                    case ClipBtnName.LEFT: {
+                        this.ctx.translate(-diffX, 0);
+                        this.currentImg!.options.dx += diffX;
+                        break;
+                    }
+                }
+
+                this.ctx.clearRect(-this.canvas.width / 2, -this.canvas.height / 2, this.canvas.width, this.canvas.height);
+                this.currentImg?.draw();
+            }
+
             this.show();
             this.status = StatusEnum.NONE;
             this.canvas.style.cursor = "default";
@@ -385,8 +422,9 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
         this.ctx.clearRect(-this.canvas.width / 2, -this.canvas.height / 2, this.canvas.width, this.canvas.height);
 
         // 鼠标位置差
-        const diffOffsetX = (e.offsetX - this.startXOnCanvas) * Math.cos(this.startOptions.radian);
-        const diffOffsetY = (e.offsetY - this.startYOnCanvas) * Math.cos(this.startOptions.radian);
+        const [offsetX, offsetY] = this.convertPoint2Convas([e.offsetX, e.offsetY]);
+        const diffOffsetX = (offsetX - this.startXOnCanvas) * Math.cos(this.startOptions.radian);
+        const diffOffsetY = (offsetY - this.startYOnCanvas) * Math.cos(this.startOptions.radian);
 
         const sDiffOffsetX = (this.startOptions.sWidth / this.startOptions.dWidth) * diffOffsetX;
         const sDiffOffsetY = (this.startOptions.sHeight / this.startOptions.dHeight) * diffOffsetY;
