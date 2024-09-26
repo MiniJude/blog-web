@@ -28,11 +28,6 @@ class Cvs {
             canvas: this.canvas,
             ctx: this.ctx!,
         }); // 初始化图片处理工具
-
-        // 监听图片处理工具的事件，再进行相应绘制
-        this.cvsImgTool.on(EventType.UPDATE, () => {
-            this.drawImage();
-        });
     }
 
     private readonly getDefaultOptions = (): Required<CvsOptions> => ({

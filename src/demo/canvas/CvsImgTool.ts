@@ -26,6 +26,13 @@ enum ClipBtnName {
     LEFT = "left",
 }
 
+enum CornerBtnName {
+    TOP_LEFT = "top_left",
+    TOP_RIGHT = "top_right",
+    BOTTOM_LEFT = "bottom_left",
+    BOTTOM_RIGHT = "bottom_right",
+}
+
 interface EventHandlerMap {
     [key: string]: (...args: any[]) => void;
     [EventType.UPDATE]: () => void;
@@ -37,7 +44,6 @@ interface CvsImgToolOptions {
 }
 
 class CvsImgTool extends EventEmitter<EventHandlerMap> {
-    /** 当前正在操作的图片， 如果是null则不展示 */
     currentImg?: CvsImg | null;
     ctx: CanvasRenderingContext2D;
     canvas: HTMLCanvasElement;
@@ -46,10 +52,15 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
     status: StatusEnum = StatusEnum.NONE;
     isShow: boolean = false;
 
+    // 四条边上的裁剪按钮
     clipBtnPath2Ds: Record<ClipBtnName, Path2D> | null = null;
-    rotationBtnPath2D: Path2D | null = null;
-    selectedCorner: string | null;
     selectedClipBtnName?: ClipBtnName;
+    // 四个角上的缩放按钮
+    cornerBtnPath2Ds: Record<CornerBtnName, Path2D> | null = null;
+    selectedCornerBtnName?: CornerBtnName;
+    // 旋转按钮
+    rotationBtnPath2D: Path2D | null = null;
+
     constant = {
         /** 旋转按钮半径 */
         rotationButtonRadius: 15,
@@ -67,7 +78,6 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
         this.canvas = options.canvas;
         this.cornerSize = 6;
         this.edgeWidth = 2;
-        this.selectedCorner = null;
 
         // 添加编辑框事件
         this.addEventListeners();
@@ -143,18 +153,28 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
 
     /** 绘制四个角的圆圈 */
     drawCornerCircles(x: number, y: number, width: number, height: number): void {
-        const corners = [
-            { cx: x, cy: y }, // top-left
-            { cx: x + width, cy: y }, // top-right
-            { cx: x, cy: y + height }, // bottom-left
-            { cx: x + width, cy: y + height }, // bottom-right
-        ];
-        this.ctx.fillStyle = "white"; // 设置填充颜色为蓝色
-        corners.forEach((corner) => {
-            this.ctx.beginPath();
-            this.ctx.arc(corner.cx, corner.cy, this.cornerSize, 0, 2 * Math.PI);
-            this.ctx.fill();
-        });
+        this.ctx.fillStyle = "white";
+        const topLeftBtnPath2D = new Path2D();
+        const topRightBtnPath2D = new Path2D();
+        const bottomLeftBtnPath2D = new Path2D();
+        const bottomRightBtnPath2D = new Path2D();
+
+        topLeftBtnPath2D.arc(x, y, this.cornerSize, 0, 2 * Math.PI);
+        topRightBtnPath2D.arc(x + width, y, this.cornerSize, 0, 2 * Math.PI);
+        bottomLeftBtnPath2D.arc(x, y + height, this.cornerSize, 0, 2 * Math.PI);
+        bottomRightBtnPath2D.arc(x + width, y + height, this.cornerSize, 0, 2 * Math.PI);
+
+        this.ctx.fill(topLeftBtnPath2D);
+        this.ctx.fill(topRightBtnPath2D);
+        this.ctx.fill(bottomLeftBtnPath2D);
+        this.ctx.fill(bottomRightBtnPath2D);
+
+        this.cornerBtnPath2Ds = {
+            [CornerBtnName.TOP_LEFT]: topLeftBtnPath2D,
+            [CornerBtnName.TOP_RIGHT]: topRightBtnPath2D,
+            [CornerBtnName.BOTTOM_LEFT]: bottomLeftBtnPath2D,
+            [CornerBtnName.BOTTOM_RIGHT]: bottomRightBtnPath2D,
+        };
     }
 
     /** 绘制裁剪按钮 */
@@ -210,9 +230,19 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
     /** 检查是否在裁剪按钮上 */
     isPointInClipButton(x: number, y: number) {
         if (!this.clipBtnPath2Ds) return "";
-        for (const cornerName in this.clipBtnPath2Ds) {
-            let isIn = this.ctx.isPointInPath(this.clipBtnPath2Ds[cornerName as ClipBtnName], x, y);
-            if (isIn) return cornerName as ClipBtnName;
+        for (const clipBtnName in this.clipBtnPath2Ds) {
+            let isIn = this.ctx.isPointInPath(this.clipBtnPath2Ds[clipBtnName as ClipBtnName], x, y);
+            if (isIn) return clipBtnName as ClipBtnName;
+        }
+        return "";
+    }
+
+    /** 检查是否点击在四角 */
+    isPointInCorner(x: number, y: number) {
+        if (!this.cornerBtnPath2Ds) return "";
+        for (const cornerBtnName in this.cornerBtnPath2Ds) {
+            let isIn = this.ctx.isPointInPath(this.cornerBtnPath2Ds[cornerBtnName as CornerBtnName], x, y);
+            if (isIn) return cornerBtnName as CornerBtnName;
         }
         return "";
     }
@@ -227,28 +257,6 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
     isPointInRotationButton(x: number, y: number): boolean {
         if (!this.currentImg || !this.rotationBtnPath2D) return false;
         return this.ctx.isPointInPath(this.rotationBtnPath2D, x, y);
-    }
-
-    // 检查是否点击在四角
-    isPointInCorner(x: number, y: number) {
-        if (!this.currentImg) return "";
-
-        const { x: imgX, y: imgY, width, height } = this.currentImg.options;
-        const corners = {
-            topLeft: { cx: imgX, cy: imgY },
-            topRight: { cx: imgX + width, cy: imgY },
-            bottomLeft: { cx: imgX, cy: imgY + height },
-            bottomRight: { cx: imgX + width, cy: imgY + height },
-        };
-
-        for (const [cornerName, { cx, cy }] of Object.entries(corners)) {
-            const distance = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
-            if (distance <= this.cornerSize) {
-                return cornerName as keyof typeof corners;
-            }
-        }
-
-        return "";
     }
 
     /** 添加事件监听 */
@@ -283,27 +291,21 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
             this.startOptions = JSON.parse(JSON.stringify(this.currentImg!.options));
 
             const whichClip = this.isPointInClipButton(x, y);
-
             if (whichClip) {
                 this.status = StatusEnum.CLIPING;
                 this.selectedClipBtnName = whichClip;
                 return;
             }
 
-            if (this.isPointInRotationButton(x, y)) {
-                this.status = StatusEnum.ROTATING;
+            const whichCorner = this.isPointInCorner(x, y);
+            if (whichCorner) {
+                this.status = StatusEnum.ZOOMING;
+                this.selectedCornerBtnName = whichCorner;
                 return;
             }
 
-            const whichCorner = this.isPointInCorner(x, y);
-            if (whichCorner === "bottomLeft" || whichCorner === "topRight") {
-                this.status = StatusEnum.ZOOMING;
-                this.canvas.style.cursor = "nwse-resize";
-                return;
-            }
-            if (whichCorner === "topLeft" || whichCorner === "bottomRight") {
-                this.status = StatusEnum.ZOOMING;
-                this.canvas.style.cursor = "nesw-resize";
+            if (this.isPointInRotationButton(x, y)) {
+                this.status = StatusEnum.ROTATING;
                 return;
             }
 
@@ -332,7 +334,7 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
                 this.handleMouseMoveWhenRotate(e);
                 break;
             case "zooming":
-                this.resizeImage(e);
+                this.handleMouseMoveWhenZooming(e);
                 break;
             default:
                 // "none"
@@ -376,11 +378,9 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
                         break;
                     }
                 }
-
-                this.ctx.clearRect(-this.canvas.width / 2, -this.canvas.height / 2, this.canvas.width, this.canvas.height);
-                this.currentImg?.draw();
             }
-
+            this.ctx.clearRect(-this.canvas.width / 2, -this.canvas.height / 2, this.canvas.width, this.canvas.height);
+            this.currentImg?.draw();
             this.show();
             this.status = StatusEnum.NONE;
             this.canvas.style.cursor = "default";
@@ -416,8 +416,6 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
     /** 处理裁剪 */
     handleMouseMoveWhenCliping(e: MouseEvent) {
         if (!this.currentImg || !this.startOptions) return;
-
-        getCtxTransform(this.ctx);
 
         this.ctx.clearRect(-this.canvas.width / 2, -this.canvas.height / 2, this.canvas.width, this.canvas.height);
 
@@ -488,6 +486,59 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
         });
     }
 
+    /** 处理缩放 */
+    handleMouseMoveWhenZooming(e: MouseEvent) {
+        if (!this.currentImg || !this.startOptions) return;
+        this.ctx.clearRect(-this.canvas.width / 2, -this.canvas.height / 2, this.canvas.width, this.canvas.height);
+
+        const { dWidth, dHeight } = this.currentImg.options;
+
+        // 鼠标位置差
+        const [offsetX] = this.convertPoint2Convas([e.offsetX, e.offsetY]);
+        const diffOffsetX = (offsetX - this.startXOnCanvas) * Math.cos(this.startOptions.radian);
+
+        // 当前宽高比
+        const currentRatio = dWidth / dHeight;
+
+        switch (this.selectedCornerBtnName) {
+            case CornerBtnName.TOP_RIGHT: {
+                this.canvas.style.cursor = "nesw-resize";
+                this.currentImg.options.dWidth = this.startOptions.dWidth + diffOffsetX;
+                this.currentImg.options.dHeight = this.currentImg.options.dWidth / currentRatio;
+                break;
+            }
+            case CornerBtnName.BOTTOM_RIGHT: {
+                this.canvas.style.cursor = "nwse-resize";
+                this.currentImg.options.dWidth = this.startOptions.dWidth + diffOffsetX;
+                this.currentImg.options.dHeight = this.currentImg.options.dWidth / currentRatio;
+                break;
+            }
+            case CornerBtnName.TOP_LEFT: {
+                this.canvas.style.cursor = "nwse-resize";
+                this.currentImg.options.dWidth = this.startOptions.dWidth - diffOffsetX;
+                this.currentImg.options.dHeight = this.currentImg.options.dWidth / currentRatio;
+                break;
+            }
+            case CornerBtnName.BOTTOM_LEFT: {
+                this.canvas.style.cursor = "nesw-resize";
+                this.currentImg.options.dWidth = this.startOptions.dWidth - diffOffsetX;
+                this.currentImg.options.dHeight = this.currentImg.options.dWidth / currentRatio;
+                break;
+            }
+        }
+
+        this.currentImg.options.dx = -this.currentImg.options.dWidth / 2;
+        this.currentImg.options.dy = -this.currentImg.options.dHeight / 2;
+
+        this.currentImg!.draw();
+        this.show({
+            showEdges: true,
+            showRotationButton: false,
+            showClipButton: false,
+            showCorners: false,
+        });
+    }
+
     /** 处理旋转 */
     handleMouseMoveWhenRotate(e: MouseEvent) {
         console.log("rotate");
@@ -505,7 +556,7 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
         const centerPoint: [number, number] = [0, 0];
         const radian = calculateRotation(startPoint, centerPoint, endPoing);
         this.currentImg.options.radian = this.startOptions!.radian + radian;
-        
+
         // 设置dx，dy为负的宽高的一半
         const position = { dx: -dWidth / 2, dy: -dHeight / 2 };
 
@@ -549,11 +600,11 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
 
         // 是否在缩放按钮内
         const whichCorner = this.isPointInCorner(x, y);
-        if (whichCorner === "bottomLeft" || whichCorner === "topRight") {
+        if (whichCorner === CornerBtnName.BOTTOM_LEFT || whichCorner === CornerBtnName.TOP_RIGHT) {
             this.canvas.style.cursor = "nesw-resize";
             return;
         }
-        if (whichCorner === "topLeft" || whichCorner === "bottomRight") {
+        if (whichCorner === CornerBtnName.TOP_LEFT || whichCorner === CornerBtnName.BOTTOM_RIGHT) {
             this.canvas.style.cursor = "nwse-resize";
             return;
         }
@@ -569,14 +620,6 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
         }
 
         this.canvas.style.cursor = "default";
-    }
-
-    // 实现等比缩放功能
-    resizeImage(e: MouseEvent): void {
-        // 等比缩放逻辑
-        // 更新图片大小
-        // this.options.width = newWidth;
-        // this.options.height = newHeight;
     }
 
     /**
