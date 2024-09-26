@@ -323,6 +323,9 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
     /** 处理鼠标移动事件 */
     onMouseMove(e: MouseEvent): void {
         if (!this.currentImg || !this.isShow) return;
+        // 如果鼠标不在画布上直接返回
+        if (e.target !== this.canvas) return;
+
         switch (this.status) {
             case "dragging":
                 this.handleMouseMoveWhenDragging(e);
@@ -624,7 +627,6 @@ class CvsImgTool extends EventEmitter<EventHandlerMap> {
 
     /**
      * dom坐标转换成canvas坐标
-     * 参考 https://juejin.cn/post/7047787541784690725?searchId=20240923204822157D27B2CF9E4C170167
      */
     convertPoint2Convas([x, y]: [number, number]): [number, number] {
         const { radian, origin } = getCtxTransform(this.ctx);
