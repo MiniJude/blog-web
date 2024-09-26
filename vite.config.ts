@@ -4,6 +4,7 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+    base: '/welcome-to-my-website/',
     plugins: [vue()],
     // 配置@
     resolve: {
