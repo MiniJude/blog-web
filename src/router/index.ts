@@ -6,12 +6,17 @@ const routes: RouteRecordRaw[] = [
         path: "/",
         // name: "home",
         // component: () => import("@/demo/index.vue"),
-        redirect: "/demo/canvas",
+        redirect: "/demo/cesium",
     },
     {
         path: "/demo/canvas",
         name: "demo-canvas",
         component: () => import("@/demo/canvas/index.vue"),
+    },
+    {
+        path: "/demo/cesium",
+        name: "demo-cesium",
+        component: () => import("@/demo/cesium/index.vue"),
     },
 ];
 
