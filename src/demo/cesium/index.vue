@@ -7,8 +7,7 @@ import { Cartesian3, createOsmBuildingsAsync, Ion, Math as CesiumMath, Terrain, 
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import { CESIUM_TOKEN } from './config';
 import { onMounted } from 'vue';
-import * as Cesium from 'cesium';
-import './transform'
+import { utm2wgs84 } from './transform'
 
 Ion.defaultAccessToken = CESIUM_TOKEN
 
@@ -19,8 +18,9 @@ onMounted(async () => {
     });
 
     // Fly the camera to San Francisco at the given longitude, latitude, and height.
+    const position = utm2wgs84(-402.6968833739484, 158.8633531918337)
     viewer.camera.flyTo({
-        destination: Cartesian3.fromDegrees(117.47381507483506, 34.398499146435206, 400),
+        destination: Cartesian3.fromDegrees(...position, 400),
         // orientation: {
         //     heading: CesiumMath.toRadians(0.0),
         //     pitch: CesiumMath.toRadians(-15.0),
