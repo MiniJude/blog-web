@@ -4,9 +4,8 @@ import type { RouteRecordRaw } from "vue-router";
 const routes: RouteRecordRaw[] = [
     {
         path: "/",
-        // name: "home",
-        // component: () => import("@/demo/index.vue"),
-        redirect: "/demo/cesium",
+        name: "demo-list",
+        component: () => import("@/demo/index.vue"),
     },
     {
         path: "/demo/canvas",
@@ -17,6 +16,11 @@ const routes: RouteRecordRaw[] = [
         path: "/demo/cesium",
         name: "demo-cesium",
         component: () => import("@/demo/cesium/index.vue"),
+    },
+    {
+        path: "/demo/jspdf",
+        name: "demo-jspdf",
+        component: () => import("@/demo/jspdf/index.vue"),
     },
 ];
 

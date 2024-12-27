@@ -11,6 +11,8 @@
   "dependencies": {
     "@types/proj4": "^2.5.5",
     "cesium": "^1.124.0",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
     "proj4": "^2.15.0",
     "vue": "^3.4.37",
     "vue-router": "^4.4.5"
