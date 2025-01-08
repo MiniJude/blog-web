@@ -3,7 +3,7 @@ import vue from "@vitejs/plugin-vue";
 import path from "path";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
-const base = "/welcome-to-my-website";
+const base = "/blog-web";
 
 // const cesiumSource = path.resolve(__dirname, "./node_modules/cesium/Build/Cesium");
 const cesiumSource = "node_modules/cesium/Build/Cesium";
